@@ -4,14 +4,6 @@ import org.junit.*;
 import static org.junit.Assert.*;
 
 public class IdFromFilenameTest {
-	@Test public void regularCopy() throws Exception {
-	//comment
-	IdStrategy.CaseSensitive nestedObj = new IdStrategy.CaseSensitive();
-
-	String filename = "[a-z0-9_. -]+";
-	String output = nestedObj.idFromFilename(filename);
-	assertEquals(filename, output);
-	}
 
 	@Test public void regularOurs() throws Exception {
 	IdStrategy.CaseSensitive nestedObj = new IdStrategy.CaseSensitive();
