@@ -44,10 +44,12 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.security.AlgorithmParameterGenerator;
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.interfaces.DSAPublicKey;
@@ -55,210 +57,220 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 
 public class Connection {
-    public final InputStream in;
-    public final OutputStream out;
+	public final InputStream in;
+	public final OutputStream out;
 
-    public final DataInputStream din;
-    public final DataOutputStream dout;
+	public final DataInputStream din;
+	public final DataOutputStream dout;
 
-    public Connection(Socket socket) throws IOException {
-        this(SocketChannelStream.in(socket),SocketChannelStream.out(socket));
-    }
+	public Connection(Socket socket) throws IOException {
+		this(SocketChannelStream.in(socket),SocketChannelStream.out(socket));
+	}
 
-    public Connection(InputStream in, OutputStream out) {
-        this.in = in;
-        this.out = out;
-        this.din = new DataInputStream(in);
-        this.dout = new DataOutputStream(out);
-    }
+	public Connection(InputStream in, OutputStream out) {
+		this.in = in;
+		this.out = out;
+		this.din = new DataInputStream(in);
+		this.dout = new DataOutputStream(out);
+	}
 
-//
-//
-// Convenience methods
-//
-//
-    public void writeUTF(String msg) throws IOException {
-        dout.writeUTF(msg);
-    }
 
-    public String readUTF() throws IOException {
-        return din.readUTF();
-    }
+	//
+	// Convenience methods
+	//
+	//
+	public void writeUTF(String msg) throws IOException {
+		dout.writeUTF(msg);
+	}
 
-    public void writeBoolean(boolean b) throws IOException {
-        dout.writeBoolean(b);
-    }
+	public String readUTF() throws IOException {
+		return din.readUTF();
+	}
 
-    public boolean readBoolean() throws IOException {
-        return din.readBoolean();
-    }
+	public void writeBoolean(boolean b) throws IOException {
+		dout.writeBoolean(b);
+	}
 
-    /**
-     * Sends a serializable object.
-     */
-    public void writeObject(Object o) throws IOException {
-        ObjectOutputStream oos = new ObjectOutputStream(out);
-        oos.writeObject(o);
-        // don't close oss, which will close the underlying stream
-        // no need to flush either, given the way oos is implemented
-    }
+	public boolean readBoolean() throws IOException {
+		return din.readBoolean();
+	}
 
-    /**
-     * Receives an object sent by {@link #writeObject(Object)}
-     */
-    public <T> T readObject() throws IOException, ClassNotFoundException {
-        ObjectInputStream ois = new ObjectInputStream(in);
-        return (T)ois.readObject();
-    }
+	/**
+	 * Sends a serializable object.
+	 */
+	public void writeObject(Object o) throws IOException {
+		ObjectOutputStream oos = new ObjectOutputStream(out);
+		oos.writeObject(o);
+		// don't close oss, which will close the underlying stream
+		// no need to flush either, given the way oos is implemented
+	}
 
-    public void writeKey(Key key) throws IOException {
-        writeUTF(new String(Base64.encodeBase64(key.getEncoded())));
-    }
+	/**
+	 * Receives an object sent by {@link #writeObject(Object)}
+	 */
+	public <T> T readObject() throws IOException, ClassNotFoundException {
+		ObjectInputStream ois = new ObjectInputStream(in);
+		return (T)ois.readObject();
+	}
 
-    public X509EncodedKeySpec readKey() throws IOException {
-        byte[] otherHalf = Base64.decodeBase64(readUTF()); // for historical reasons, we don't use readByteArray()
-        return new X509EncodedKeySpec(otherHalf);
-    }
+	public void writeKey(Key key) throws IOException {
+		writeUTF(new String(Base64.encodeBase64(key.getEncoded())));
+	}
 
-    public void writeByteArray(byte[] data) throws IOException {
-        dout.writeInt(data.length);
-        dout.write(data);
-    }
+	public X509EncodedKeySpec readKey() throws IOException {
+		byte[] otherHalf = Base64.decodeBase64(readUTF()); // for historical reasons, we don't use readByteArray()
+		return new X509EncodedKeySpec(otherHalf);
+	}
 
-    public byte[] readByteArray() throws IOException {
-        int bufSize = din.readInt();
-        if (bufSize < 0) {
-            throw new IOException("DataInputStream unexpectedly returned negative integer");
-        }
-        byte[] buf = new byte[bufSize];
-        din.readFully(buf);
-        return buf;
-    }
+	public void writeByteArray(byte[] data) throws IOException {
+		dout.writeInt(data.length);
+		dout.write(data);
+	}
 
-    /**
-     * Performs a Diffie-Hellman key exchange and produce a common secret between two ends of the connection.
-     *
-     * <p>
-     * DH is also useful as a coin-toss algorithm. Two parties get the same random number without trusting
-     * each other.
-     */
-    public KeyAgreement diffieHellman(boolean side) throws IOException, GeneralSecurityException {
-        return diffieHellman(side,512);
-    }
-    public KeyAgreement diffieHellman(boolean side, int keySize) throws IOException, GeneralSecurityException {
-        KeyPair keyPair;
-        PublicKey otherHalf;
+	public byte[] readByteArray() throws IOException {
+		int bufSize = din.readInt();
+		if (bufSize < 0) {
+			throw new IOException("DataInputStream unexpectedly returned negative integer");
+		}
+		byte[] buf = new byte[bufSize];
+		din.readFully(buf);
+		return buf;
+	}
 
-        if (side) {
-            AlgorithmParameterGenerator paramGen = AlgorithmParameterGenerator.getInstance("DH");
-            paramGen.init(keySize);
+	/**
+	 * Performs a Diffie-Hellman key exchange and produce a common secret between two ends of the connection.
+	 *
+	 * <p>
+	 * DH is also useful as a coin-toss algorithm. Two parties get the same random number without trusting
+	 * each other.
+	 */
+	public KeyAgreement diffieHellman(boolean side) throws IOException, GeneralSecurityException {
+		return diffieHellman(side,512);
+	}
+	public KeyAgreement diffieHellman(boolean side, int keySize) throws IOException, GeneralSecurityException {
+		KeyPair keyPair;
+		PublicKey otherHalf;
 
-            KeyPairGenerator dh = KeyPairGenerator.getInstance("DH");
-            dh.initialize(paramGen.generateParameters().getParameterSpec(DHParameterSpec.class));
-            keyPair = dh.generateKeyPair();
+		if (side) {
+			AlgorithmParameterGenerator paramGen = AlgorithmParameterGenerator.getInstance("DH");
+			paramGen.init(keySize);
 
-            // send a half and get a half
-            writeKey(keyPair.getPublic());
-            otherHalf = KeyFactory.getInstance("DH").generatePublic(readKey());
-        } else {
-            otherHalf = KeyFactory.getInstance("DH").generatePublic(readKey());
 
-            KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("DH");
-            keyPairGen.initialize(((DHPublicKey) otherHalf).getParams());
-            keyPair = keyPairGen.generateKeyPair();
+			DHParameterSpec parameterSpec = paramGen.generateParameters().getParameterSpec(DHParameterSpec.class);
+			keyPair = generateKeyPairWithSpec(parameterSpec);
 
-            // send a half and get a half
-            writeKey(keyPair.getPublic());
-        }
+			// send a half and get a half
+			writeKey(keyPair.getPublic());
+			otherHalf = KeyFactory.getInstance("DH").generatePublic(readKey());
+		} else {
+			otherHalf = KeyFactory.getInstance("DH").generatePublic(readKey());
 
-        KeyAgreement ka = KeyAgreement.getInstance("DH");
-        ka.init(keyPair.getPrivate());
-        ka.doPhase(otherHalf, true);
 
-        return ka;
-    }
+			DHParameterSpec params = ((DHPublicKey) otherHalf).getParams();
+			keyPair = generateKeyPairWithSpec(params);
 
-    /**
-     * Upgrades a connection with transport encryption by the specified symmetric cipher.
-     *
-     * @return
-     *      A new {@link Connection} object that includes the transport encryption.
-     */
-    public Connection encryptConnection(SecretKey sessionKey, String algorithm) throws IOException, GeneralSecurityException {
-        Cipher cout = Cipher.getInstance(algorithm);
-        cout.init(Cipher.ENCRYPT_MODE, sessionKey, new IvParameterSpec(sessionKey.getEncoded()));
-        CipherOutputStream o = new CipherOutputStream(out, cout);
+			// send a half and get a half
+			writeKey(keyPair.getPublic());
+		}
 
-        Cipher cin = Cipher.getInstance(algorithm);
-        cin.init(Cipher.DECRYPT_MODE, sessionKey, new IvParameterSpec(sessionKey.getEncoded()));
-        CipherInputStream i = new CipherInputStream(in, cin);
+		KeyAgreement ka = KeyAgreement.getInstance("DH");
+		ka.init(keyPair.getPrivate());
+		ka.doPhase(otherHalf, true);
 
-        return new Connection(i,o);
-    }
+		return ka;
+	}
 
-    /**
-     * Given a byte array that contains arbitrary number of bytes, digests or expands those bits into the specified
-     * number of bytes without loss of entropy.
-     *
-     * Cryptographic utility code.
-     */
-    public static byte[] fold(byte[] bytes, int size) {
-        byte[] r = new byte[size];
-        for (int i=Math.max(bytes.length,size)-1; i>=0; i-- ) {
-            r[i%r.length] ^= bytes[i%bytes.length];
-        }
-        return r;
-    }
+	private KeyPair generateKeyPairWithSpec(DHParameterSpec parameterSpec)
+			throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+			KeyPair keyPair;
+			KeyPairGenerator dh = KeyPairGenerator.getInstance("DH");
+			dh.initialize(parameterSpec);
+			keyPair = dh.generateKeyPair();
+			return keyPair;
+	}
 
-    private String detectKeyAlgorithm(KeyPair kp) {
-        return detectKeyAlgorithm(kp.getPublic());
-    }
+	/**
+	 * Upgrades a connection with transport encryption by the specified symmetric cipher.
+	 *
+	 * @return
+	 *      A new {@link Connection} object that includes the transport encryption.
+	 */
+	public Connection encryptConnection(SecretKey sessionKey, String algorithm) throws IOException, GeneralSecurityException {
+		Cipher cout = Cipher.getInstance(algorithm);
+		cout.init(Cipher.ENCRYPT_MODE, sessionKey, new IvParameterSpec(sessionKey.getEncoded()));
+		CipherOutputStream o = new CipherOutputStream(out, cout);
 
-    private String detectKeyAlgorithm(PublicKey kp) {
-        if (kp instanceof RSAPublicKey)     return "RSA";
-        if (kp instanceof DSAPublicKey)     return "DSA";
-        throw new IllegalArgumentException("Unknown public key type: "+kp);
-    }
+		Cipher cin = Cipher.getInstance(algorithm);
+		cin.init(Cipher.DECRYPT_MODE, sessionKey, new IvParameterSpec(sessionKey.getEncoded()));
+		CipherInputStream i = new CipherInputStream(in, cin);
 
-    /**
-     * Used in conjunction with {@link #verifyIdentity(byte[])} to prove
-     * that we actually own the private key of the given key pair.
-     */
-    public void proveIdentity(byte[] sharedSecret, KeyPair key) throws IOException, GeneralSecurityException {
-        String algorithm = detectKeyAlgorithm(key);
-        writeUTF(algorithm);
-        writeKey(key.getPublic());
+		return new Connection(i,o);
+	}
 
-        Signature sig = Signature.getInstance("SHA1with"+algorithm);
-        sig.initSign(key.getPrivate());
-        sig.update(key.getPublic().getEncoded());
-        sig.update(sharedSecret);
-        writeObject(sig.sign());
-    }
+	/**
+	 * Given a byte array that contains arbitrary number of bytes, digests or expands those bits into the specified
+	 * number of bytes without loss of entropy.
+	 *
+	 * Cryptographic utility code.
+	 */
+	public static byte[] fold(byte[] bytes, int size) {
+		byte[] r = new byte[size];
+		for (int i=Math.max(bytes.length,size)-1; i>=0; i-- ) {
+			r[i%r.length] ^= bytes[i%bytes.length];
+		}
+		return r;
+	}
 
-    /**
-     * Verifies that we are talking to a peer that actually owns the private key corresponding to the public key we get.
-     */
-    public PublicKey verifyIdentity(byte[] sharedSecret) throws IOException, GeneralSecurityException {
-        try {
-            String serverKeyAlgorithm = readUTF();
-            PublicKey spk = KeyFactory.getInstance(serverKeyAlgorithm).generatePublic(readKey());
+	private String detectKeyAlgorithm(KeyPair kp) {
+		return detectKeyAlgorithm(kp.getPublic());
+	}
 
-            // verify the identity of the server
-            Signature sig = Signature.getInstance("SHA1with"+serverKeyAlgorithm);
-            sig.initVerify(spk);
-            sig.update(spk.getEncoded());
-            sig.update(sharedSecret);
-            sig.verify((byte[]) readObject());
+	private String detectKeyAlgorithm(PublicKey kp) {
+		if (kp instanceof RSAPublicKey)     return "RSA";
+		if (kp instanceof DSAPublicKey)     return "DSA";
+		throw new IllegalArgumentException("Unknown public key type: "+kp);
+	}
 
-            return spk;
-        } catch (ClassNotFoundException e) {
-            throw new Error(e); // impossible
-        }
-    }
+	/**
+	 * Used in conjunction with {@link #verifyIdentity(byte[])} to prove
+	 * that we actually own the private key of the given key pair.
+	 */
+	public void proveIdentity(byte[] sharedSecret, KeyPair key) throws IOException, GeneralSecurityException {
+		String algorithm = detectKeyAlgorithm(key);
+		writeUTF(algorithm);
+		writeKey(key.getPublic());
 
-    public void close() throws IOException {
-        in.close();
-        out.close();
-    }
+		Signature sig = Signature.getInstance("SHA1with"+algorithm);
+		sig.initSign(key.getPrivate());
+		sig.update(key.getPublic().getEncoded());
+		sig.update(sharedSecret);
+		writeObject(sig.sign());
+	}
+
+	/**
+	 * Verifies that we are talking to a peer that actually owns the private key corresponding to the public key we get.
+	 */
+	public PublicKey verifyIdentity(byte[] sharedSecret) throws IOException, GeneralSecurityException {
+		try {
+			String serverKeyAlgorithm = readUTF();
+			PublicKey spk = KeyFactory.getInstance(serverKeyAlgorithm).generatePublic(readKey());
+
+			// verify the identity of the server
+			Signature sig = Signature.getInstance("SHA1with"+serverKeyAlgorithm);
+			sig.initVerify(spk);
+			sig.update(spk.getEncoded());
+			sig.update(sharedSecret);
+			sig.verify((byte[]) readObject());
+
+			return spk;
+		} catch (ClassNotFoundException e) {
+			throw new Error(e); // impossible
+		}
+	}
+
+	public void close() throws IOException {
+		in.close();
+		out.close();
+	}
 }
+
