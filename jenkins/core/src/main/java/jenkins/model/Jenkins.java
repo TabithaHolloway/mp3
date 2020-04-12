@@ -3860,7 +3860,7 @@ public class Jenkins extends AbstractCIBase implements DirectlyModifiableTopLeve
         return getPrimaryView();
     }
 
-    /**
+    /** 
      * This method checks all existing jobs to see if displayName is
      * unique. It does not check the displayName against the displayName of the
      * job that the user is configuring though to prevent a validation warning
@@ -3936,7 +3936,12 @@ public class Jenkins extends AbstractCIBase implements DirectlyModifiableTopLeve
         }
     }
 
-    public static class MasterComputer extends Computer {
+    void updateAndTrim() {
+		updateComputerList();
+		trimLabels();
+	}
+
+	public static class MasterComputer extends Computer {
         protected MasterComputer() {
             super(Jenkins.getInstance());
         }
