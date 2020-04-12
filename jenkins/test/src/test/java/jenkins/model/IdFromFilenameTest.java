@@ -27,7 +27,7 @@ public class IdFromFilenameTest {
 	assertEquals(expected2, output2);
 	}
 
-	@Test public void dollarsign() throws Exception {
+	@Test public void dollarsign_1() throws Exception {
 	IdStrategy.CaseSensitive nestedObj = new IdStrategy.CaseSensitive();
 
 	String filename = "$0041";
@@ -35,11 +35,17 @@ public class IdFromFilenameTest {
 	String expected = "A";
 	assertEquals(expected, output);
 
+	}
+
+	@Test public void dollarsign_2() throws Exception {
+	IdStrategy.CaseSensitive nestedObj = new IdStrategy.CaseSensitive();
 
 	String filename2 = "abc$";
-	String output2 = nestedObj.idFromFilename(filename2);
-	String expected2 = "abc";
-	assertEquals(expected2, output2);
+        String output2 = nestedObj.idFromFilename(filename2);
+        String expected2 = "abc";
+        assertEquals(expected2, output2);
+
+
 	}
 
 }
