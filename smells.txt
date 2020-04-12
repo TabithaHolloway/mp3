@@ -1,0 +1,15 @@
+Question 1
+
+The code smell is duplicated code. We fix the duplicated code by extracting the code into a new function, and call that function.
+
+Question 3
+
+The code smell is feature envy. We fix the feature envy by moving the updateAndTrim funtion to Jenkins.java and then call the function inside of Nodes.java.
+
+Question 4
+
+We will put the if else statement into a while loop, store the intial value of i, and iterate until i is the value of initial value of i plus four.
+
+Question 6
+
+In ComputerStateTest.java, we found eight lines of code repaeated in two tests, therefore, we extracted the lines of code into a method in which both tests called the function.
